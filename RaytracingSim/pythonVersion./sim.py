@@ -48,13 +48,13 @@ def rotation(mu, g):
   
   
   
-#This is the main monte-carlo simulation.
+#This is the monte-carlo simulation for the first layer.
 #this function takes number of photons, absorption-coefficients, scatterin_coefficients, width of the slab, mie parameter g and m as an input.
 
-def mcSimulation(nphotons, sigma_a, sigma_s, d, g, m):
-    
+def layer1(nphotons,sigma_a1,sigma_s1,d,g,m):
+    dep=0+d
     scale=1/nphotons 
-    sigma_t=sigma_a+sigma_s 
+    sigma_t=sigma_a1+sigma_s1 
     Rd=0 
     Tt=0
     xi=np.array([])
@@ -85,7 +85,7 @@ def mcSimulation(nphotons, sigma_a, sigma_s, d, g, m):
             p[1]=p[1]+s*mu[1]
             p[2]=p[2]+s*mu[2]
             count+=1        #every time a photon changes direction its scatter count increases
-            dw=sigma_a/sigma_t
+            dw=sigma_a1/sigma_t
             w=w-dw 
             w=np.max([0,w]) #Confusing: this is always going to  be zero? solved== np.max instead of np.min
             if(w<0.001):
@@ -93,9 +93,71 @@ def mcSimulation(nphotons, sigma_a, sigma_s, d, g, m):
                     break
                 else : 
                     w=w*m
+
             mu=rotation(mu, g)
         scatter_count=np.append(scatter_count, count)
-    return Rd*scale, Tt*scale, xi, yi,scatter_count
+    return Rd, Tt, x, y, mu, dep, scatter_count, scale
+#This function returns a tuple containing Reflected photons,transmitted photons, x,y coordinates, photon direction, depth, number of scattering, and scal
+
+#This is the monte-carlo simulation for the second layer.
+#this function takes number of photons, absorption-coefficients for each layer, scatterin_coefficients for each layer, width of the slab, mie parameter g and m as an input.
+ def mcSimulation2(nphotons,sigma_a1,sigma_a2,sigma_s1,sigma_s2,d,g,m):
+    ps,x,y,mu,dep1=layer1(nphotons,sigma_a1,sigma_s1,d,g,m)[1:6]
+    dep=dep1+d
+    scale=1/nphotons 
+    sigma_t=sigma_a2+sigma_s2 
+    Rd=0 
+    Tt=0
+    scatter_count=np.array([])
+    
+    for n in range(int(ps)):
+        w=1                #weight of each packet
+        p=[x,y,0]      #Initial Position of the photons
+        count=0
+        while (w!=0):
+            s=- np.log(rand.random())/sigma_t
+            if(mu[2]>0):
+                DistBound=(d-p[2])/mu[2]
+            elif(mu[2]<0):
+                DistBound=-p[2]/mu[2]
+            if(s>DistBound):
+                if(mu[2]>0):
+                    Tt=Tt+w
+                    x=np.append(x, p[0])
+                    y=np.append(y, p[1])
+                elif(mu[2]<0):
+                    Rd=Rd+w
+                break
             
-            
-#This function returns a tuple containing Reflectance, Transmittane, x,y coordinate and number of scattering. 
+            p[0]=p[0]+s*mu[0]
+            p[1]=p[1]+s*mu[1]
+            p[2]=p[2]+s*mu[2]
+            count+=1        #every time a photon changes direction its scatter count increases
+            dw=sigma_a2/sigma_t
+            w=w-dw 
+            w=np.max([0,w]) #Confusing: this is always going to  be zero? solved== np.max instead of np.min
+            if(w<0.001):
+                if(rand.random()>1/m):
+                    break
+                else : 
+                    w=w*m
+
+            mu=rotation(mu, g)
+        scatter_count=np.append(scatter_count, count)
+    return Rd, Tt, x, y, mu, dep, scatter_count, scale
+#This function returns a tuple containing Reflected photons,transmitted photons, x,y coordinates, photon direction, depth, number of scattering, and scale. 
+
+
+
+
+
+#This is a test run
+ numOfRuns = 40;
+for i in range(numOfRuns):
+    phot, x, y, mu, dep, scat, scale= (mcSimulation2(10, 2, 3, 6, 7, 0.1, -0.75, 10 ))[1:8]
+    plt.plot(x,y,'rs')
+    rat=phot*scale
+ax=plt.gca()
+ax.set(aspect='equal')
+plt.show()
+print("ratio of photons transmitted:", rat, "depth:",dep)
